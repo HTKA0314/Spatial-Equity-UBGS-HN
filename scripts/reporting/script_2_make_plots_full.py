@@ -873,53 +873,6 @@ def supp5_preferred_spatial_regression_coefficients() -> None:
 # SUPPLEMENTARY FIGURE S1
 # ============================================================
 
-def supp1_physical_accessible_gap_by_density(gdf: gpd.GeoDataFrame) -> None:
-    means = gdf.groupby("density_group", observed=False)[
-        ["physical_greenblue_pct", "accessible_A_pct", "physical_access_gap_pct"]
-    ].mean().reindex(DENSITY_ORDER)
-
-    fig, ax = plt.subplots(figsize=(8.5, 4.8))
-    y = np.arange(len(DENSITY_ORDER))
-    height = 0.35
-    
-    acc = means["accessible_A_pct"]
-    phys = means["physical_greenblue_pct"]
-    
-    # Draw grouped bars
-    ax.barh(y - height/2, phys, color="#2CA02C", height=height, edgecolor="white", label="Total Physical Space")
-    ax.barh(y + height/2, acc, color="#1F77B4", height=height, edgecolor="white", label="Publicly accessible UGBS")
-    
-    # Annotate values
-    for i, group in enumerate(DENSITY_ORDER):
-        p_val = phys.loc[group]
-        a_val = acc.loc[group]
-        
-        if pd.notna(p_val):
-            ax.text(p_val + 1.0, i - height/2, f"{p_val:.1f}%", va="center", ha="left", color="#2CA02C", fontweight="bold", fontsize=9.5)
-        if pd.notna(a_val):
-            ax.text(a_val + 1.0, i + height/2, f"{a_val:.1f}%", va="center", ha="left", color="#1F77B4", fontweight="bold", fontsize=9.5)
-
-    ax.set_yticks(y)
-    ax.set_yticklabels(DENSITY_ORDER)
-    ax.set_xlabel("Mean Area Cover per Grid Cell (%)")
-    ax.set_title(
-        "Mean physical and publicly accessible UGBS by density class",
-        fontsize=13,
-        fontweight="bold",
-        pad=15
-    )
-    ax.xaxis.set_major_formatter(PercentFormatter(100))
-    ax.grid(axis="x", linestyle="--", alpha=0.5)
-    
-    import matplotlib.patches as mpatches
-    handles = [
-        mpatches.Patch(color="#2CA02C", label="Total Physical Space"),
-        mpatches.Patch(color="#1F77B4", label="Publicly accessible UGBS")
-    ]
-    ax.legend(handles=handles, loc="lower right", fontsize=9.5, framealpha=0.9)
-
-    fig.tight_layout()
-    save_fig(fig, "supp1_physical_accessible_gap_by_density.png")
 
 
 # ============================================================
@@ -1443,7 +1396,6 @@ def run() -> None:
     fig6_lst_distribution_by_density(gdf)
 
     print("\n=== SUPPLEMENTARY FIGURES ===")
-    supp1_physical_accessible_gap_by_density(gdf)
     supp2_conversion_ratio_by_density(gdf)
     supp5_preferred_spatial_regression_coefficients()
     supp6_green_illusion_binned(gdf)
