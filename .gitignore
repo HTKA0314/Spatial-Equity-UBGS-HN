@@ -33,3 +33,6 @@ Thumbs.db
 # Temporary and Scratch
 scratch/
 temp/
+
+!outputs/tables/
+!outputs/*.md
