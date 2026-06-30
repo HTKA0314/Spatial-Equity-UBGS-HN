@@ -1,8 +1,8 @@
-# Who Lacks Cooling Green Space? Environmental Justice, Urban Heat, and Network-based Green Accessibility in Rapidly Urbanizing Hanoi
+# Understanding Green-Blue Space Inequalities in a Rapidly Urbanizing City: Evidence from Hanoi, Vietnam
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This repository contains the complete analytical pipeline, codebase, and reproducible scripts for the paper: **"Who Lacks Cooling Green Space? Environmental Justice, Urban Heat, and Network-based Green Accessibility in Rapidly Urbanizing Hanoi."**
+This repository contains the complete analytical pipeline, codebase, and reproducible scripts for the paper: **"Understanding Green-Blue Space Inequalities in a Rapidly Urbanizing City: Evidence from Hanoi, Vietnam."**
 
 The study investigates the relationship between Urban Heat Island (UHI) effects, actual walking accessibility to functional green/blue spaces via street networks, and spatial environmental equity in Hanoi, Vietnam.
 
