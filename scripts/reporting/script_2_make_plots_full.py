@@ -341,62 +341,18 @@ def load_data_old() -> gpd.GeoDataFrame:
     return gdf
 
 
-def load_admin(target_crs):
-    if os.path.exists(PATHS.admin_path):
-        adm = gpd.read_file(PATHS.admin_path)
-        return adm.to_crs(target_crs)
-    return None
 
 
 # ============================================================
 # MAP HELPERS
 # ============================================================
 
-def remove_axis(ax) -> None:
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    for spine in ax.spines.values():
-        spine.set_visible(False)
 
 
-def add_admin_boundary(ax, adm, linewidth: float = 0.35, alpha: float = 0.55, color: str = None) -> None:
-    if adm is not None:
-        c = color if color else BOUNDARY_COLOR
-        adm.boundary.plot(ax=ax, color=c, linewidth=linewidth, alpha=alpha)
 
 
-def add_north_arrow(ax, gdf) -> None:
-    xmin, ymin, xmax, ymax = gdf.total_bounds
-    x = xmin + 0.06 * (xmax - xmin)
-    y = ymin + 0.82 * (ymax - ymin)
-
-    ax.annotate(
-        "",
-        xy=(x, y + 0.06 * (ymax - ymin)),
-        xytext=(x, y),
-        arrowprops=dict(facecolor="black", edgecolor="black", width=2.2, headwidth=7),
-    )
-    ax.text(
-        x,
-        y - 0.012 * (ymax - ymin),
-        "N",
-        ha="center",
-        va="top",
-        fontsize=8,
-        fontweight="bold",
-    )
 
 
-def add_scale_bar(ax, gdf, length_m: int = 10000) -> None:
-    xmin, ymin, xmax, ymax = gdf.total_bounds
-    x = xmin + 0.08 * (xmax - xmin)
-    y = ymin + 0.04 * (ymax - ymin)
-
-    ax.plot([x, x + length_m], [y, y], color="black", linewidth=2.5)
-    ax.text(x, y + 0.012 * (ymax - ymin), "0", ha="center", fontsize=8)
-    ax.text(x + length_m, y + 0.012 * (ymax - ymin), f"{length_m // 1000} km", ha="center", fontsize=8)
 
 
 def add_panel_label(ax, label: str) -> None:
@@ -493,189 +449,12 @@ def write_summary_tables(gdf: gpd.GeoDataFrame) -> None:
 # FIGURE 1. STUDY AREA AND WORKFLOW
 # ============================================================
 
-def fig1_study_area_framework(gdf: gpd.GeoDataFrame) -> None:
-    adm = load_admin(gdf.crs)
-
-    fig, axes = plt.subplots(
-        1,
-        2,
-        figsize=(14, 6),
-        gridspec_kw={"width_ratios": [0.8, 1.2]},
-    )
-
-    # Panel A: Inset Map (Vietnam)
-    ax_inset = axes[0]
-    try:
-        world = gpd.read_file("https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip")
-        sea = world[world.CONTINENT == "Asia"]
-        sea.plot(ax=ax_inset, color="#E0E0E0", edgecolor="white", linewidth=0.5)
-        ax_inset.plot(105.85, 21.02, marker="*", color="#B2182B", markersize=12, zorder=5)
-        ax_inset.text(105.85 + 0.5, 21.02, "Hanoi", color="#333333", fontsize=11, fontweight="bold", va="center")
-        ax_inset.set_xlim(100, 112)
-        ax_inset.set_ylim(7, 24)
-    except Exception as e:
-        print(f"Warning: Failed to load naturalearth dataset: {e}")
-    
-    remove_axis(ax_inset)
-    add_panel_label(ax_inset, "A")
-    ax_inset.set_title("Study Area Location", fontsize=12, fontweight="bold", pad=15)
-
-    # Panel B: Study area with density context
-    ax = axes[1]
-    
-    # Plot population density
-    for i, (group, color) in enumerate(DENSITY_COLORS.items()):
-        sub_gdf = gdf[gdf["density_group"] == group]
-        if not sub_gdf.empty:
-            sub_gdf.plot(ax=ax, color=color, alpha=0.6, edgecolor="none", rasterized=True)
-    
-    import matplotlib.patches as mpatches
-    handles = [mpatches.Patch(color=color, label=group) for group, color in DENSITY_COLORS.items()]
-    ax.legend(handles=handles, loc="lower right", title="Population Density")
-    
-    add_admin_boundary(ax, adm, linewidth=0.45, alpha=0.8)
-    add_north_arrow(ax, gdf)
-    add_scale_bar(ax, gdf)
-    remove_axis(ax)
-    add_panel_label(ax, "B")
-    ax.set_title("Hanoi 250-m analysis grid", fontsize=11, fontweight="bold", pad=15)
-
-    fig.suptitle("Study Area Context", fontsize=14, fontweight="bold", y=0.98)
-    fig.text(
-        0.5,
-        0.015,
-        f"All spatial analyses use projected CRS {PATHS.proj_crs}.",
-        ha="center",
-        fontsize=8.2,
-        color="#555555",
-        style="italic",
-    )
-    fig.tight_layout(rect=[0, 0.04, 1, 0.95])
-    save_fig(fig, "fig1_study_area_framework.png")
 
 
 # ============================================================
 # FIGURE 2. PHYSICAL COVER + NETWORK ACCESSIBILITY + GAP
 # ============================================================
 
-def fig2_physical_network_gap(gdf: gpd.GeoDataFrame) -> None:
-    adm = load_admin(gdf.crs)
-    df_dist, dist_col = create_distance_classes(gdf)
-
-    phys_vmax = round(quantile_vmax(gdf["physical_greenblue_pct"], q=0.99, minimum=30), 1)
-    gap_vmax = round(quantile_vmax(gdf["physical_access_gap_pct"], q=0.99, minimum=20), 1)
-
-    fig, axes = plt.subplots(1, 3, figsize=(16, 7.5))
-
-    # Panel A: physical cover
-    # Plot light grey base to prevent cells with 0 values from vanishing into the white background
-    gdf.plot(ax=axes[0], color="#EAEAEA", linewidth=0, rasterized=True)
-    gdf.plot(
-        column="physical_greenblue_pct",
-        ax=axes[0],
-        cmap="YlGn",
-        vmin=0,
-        vmax=phys_vmax,
-        linewidth=0,
-        edgecolor="none",
-        rasterized=True,
-        legend=True,
-        legend_kwds={"shrink": 0.62, "label": "%"},
-    )
-    add_admin_boundary(axes[0], adm, linewidth=0.25, alpha=0.6, color="#BDBDBD")
-    add_north_arrow(axes[0], gdf)
-    add_scale_bar(axes[0], gdf)
-    remove_axis(axes[0])
-    axes[0].set_title("Physical green-blue cover", fontsize=11, fontweight="bold")
-    add_panel_label(axes[0], "A")
-
-    # Panel B: network distance classes
-    if dist_col is not None:
-        access_colors = {
-            "≤300 m": "#2166AC",      # Blue
-            "300–500 m": "#92C5DE",   # Light Blue
-            "500–1000 m": "#FDAE61",  # Orange
-            ">1000 m /\nunreachable": "#D73027", # Red
-        }
-        
-        # Base layer
-        gdf.plot(ax=axes[1], color="#EAEAEA", linewidth=0, rasterized=True)
-        df_dist.plot(
-            color=df_dist["_network_access_class"].map(access_colors),
-            ax=axes[1],
-            linewidth=0,
-            edgecolor="none",
-            rasterized=True,
-        )
-        add_admin_boundary(axes[1], adm, linewidth=0.25, alpha=0.6, color="#BDBDBD")
-        remove_axis(axes[1])
-        axes[1].set_title("Network distance to Level A UGBS", fontsize=11, fontweight="bold")
-        add_panel_label(axes[1], "B")
-
-        present_classes = df_dist["_network_access_class"].dropna().unique()
-        handles = [
-            mpatches.Patch(color=access_colors[k], label=k)
-            for k in access_colors if k in present_classes
-        ]
-        axes[1].legend(
-            handles=handles,
-            loc="lower left",
-            fontsize=7.6,
-            frameon=True,
-            facecolor="white",
-            edgecolor="#CCCCCC",
-            title="Walking distance",
-            title_fontsize=8,
-        )
-    else:
-        axes[1].text(0.5, 0.5, "Distance column missing", ha="center", va="center")
-        remove_axis(axes[1])
-        add_panel_label(axes[1], "B")
-
-    # Panel C: physical-accessibility gap
-    # Base layer
-    gdf.plot(ax=axes[2], color="#EAEAEA", linewidth=0, rasterized=True)
-    gdf.plot(
-        column="physical_access_gap_pct",
-        ax=axes[2],
-        cmap="OrRd",
-        vmin=0,
-        vmax=gap_vmax,
-        linewidth=0,
-        edgecolor="none",
-        rasterized=True,
-        legend=True,
-        legend_kwds={"shrink": 0.62, "label": "pp"},
-    )
-    add_admin_boundary(axes[2], adm, linewidth=0.25, alpha=0.6, color="#BDBDBD")
-    remove_axis(axes[2])
-    axes[2].set_title("Physical–accessibility gap", fontsize=11, fontweight="bold")
-    add_panel_label(axes[2], "C")
-
-    mean_phys = pop_weighted_mean(gdf, "physical_greenblue_pct", "population")
-    mean_acc = pop_weighted_mean(gdf, "accessible_A_pct", "population")
-    total_pop = gdf["population"].sum()
-    zero_pop = (
-        gdf.loc[gdf["accessible_A_pct"] <= 0, "population"].sum() / total_pop * 100
-        if total_pop > 0 else np.nan
-    )
-
-    fig.suptitle(
-        "Satellite-Visible Green-Blue Resources Are Not Necessarily Publicly Accessible",
-        fontsize=13.5,
-        fontweight="bold",
-        y=0.98,
-    )
-    fig.text(
-        0.5,
-        0.02,
-        f"Population-weighted mean physical cover = {mean_phys:.1f}% | mean public accessible cover = {mean_acc:.1f}%\nPopulation in cells with zero public accessible cover = {zero_pop:.1f}%.",
-        ha="center",
-        fontsize=8.6,
-        color="#333333",
-    )
-    fig.tight_layout(rect=[0, 0.045, 1, 0.94])
-    save_fig(fig, "fig2_physical_network_gap.png")
 
 def fig3_conversion_ratio_by_density(gdf: gpd.GeoDataFrame) -> None:
     df = gdf.dropna(subset=["density_group"]).copy()
@@ -1066,165 +845,12 @@ def fig6_lst_distribution_by_density(gdf: gpd.GeoDataFrame) -> None:
 # FIGURE 5. BIVARIATE LISA CLUSTERS
 # ============================================================
 
-def fig5_bivariate_lisa_clusters(gdf: gpd.GeoDataFrame) -> None:
-    adm = load_admin(gdf.crs)
-    df = gdf.copy()
-
-    df["bilisa_class"] = "Not significant"
-    if "bilisa_access_deficit_A_x_pop_density_HH_fdr" in df.columns:
-        df.loc[df["bilisa_access_deficit_A_x_pop_density_HH_fdr"] == 1, "bilisa_class"] = "High-High Cluster"
-
-    colors = {
-        "High-High Cluster": "#B2182B",
-        "Not significant": "#E6E6E6",
-    }
-
-    fig, ax = plt.subplots(figsize=(9.2, 9.2))
-
-    df.plot(
-        color=df["bilisa_class"].map(colors),
-        ax=ax,
-        linewidth=0,
-        edgecolor="none",
-        rasterized=True,
-    )
-
-    add_admin_boundary(ax, adm, linewidth=0.35, alpha=0.55)
-    add_north_arrow(ax, df)
-    add_scale_bar(ax, df)
-    remove_axis(ax)
-
-    ax.set_title(
-        "Bivariate LISA: Network Access Deficit × Population Density",
-        fontsize=13,
-        fontweight="bold",
-    )
-
-    handles = [mpatches.Patch(color=colors[k], label=k) for k in ["High-High Cluster", "Not significant"]]
-    ax.legend(
-        handles=handles,
-        loc="lower right",
-        frameon=True,
-        facecolor="white",
-        edgecolor="#CCCCCC",
-        fontsize=8.7,
-    )
-
-    fig.text(
-        0.5,
-        0.025,
-        "High-High clusters indicate areas where severe access deficits are spatially co-located with high population density.",
-        ha="center",
-        fontsize=8.2,
-        color="#555555",
-        style="italic",
-    )
-
-    fig.tight_layout(rect=[0, 0.045, 1, 1])
-    save_fig(fig, "fig5_bivariate_lisa_clusters.png")
-
-    pd.DataFrame([{
-        "n_high_high_cells": (df["bilisa_class"] == "High-High Cluster").sum(),
-        "n_total_cells": len(df),
-    }]).to_csv(
-        os.path.join(PATHS.plots_dir, "fig5_bivariate_lisa_summary.csv"),
-        index=False
-    )
 
 
 # ============================================================
 # FIGURE 6. PRIORITY INTERVENTION AREAS
 # ============================================================
 
-def fig6_priority_intervention_areas(gdf: gpd.GeoDataFrame) -> None:
-    adm = load_admin(gdf.crs)
-    df = gdf.copy()
-
-    df["priority_class"] = "Not priority"
-    if "Priority_Area_Network" in df.columns:
-        df.loc[df["Priority_Area_Network"] == 1, "priority_class"] = "Network priority"
-    if "Priority_Area_AreaGap" in df.columns:
-        df.loc[df["Priority_Area_AreaGap"] == 1, "priority_class"] = "Area-gap priority"
-        df.loc[(df["Priority_Area_Network"] == 1) & (df["Priority_Area_AreaGap"] == 1), "priority_class"] = "Both priority types"
-
-    colors = {
-        "Both priority types": "#7F0000",
-        "Network priority": "#B2182B",
-        "Area-gap priority": "#D6604D",
-        "Not priority": "#E6E6E6",
-    }
-
-    order = [
-        "Both priority types",
-        "Network priority",
-        "Area-gap priority",
-        "Not priority",
-    ]
-
-    fig, ax = plt.subplots(figsize=(9.5, 9.5))
-
-    df.plot(
-        color=df["priority_class"].map(colors),
-        ax=ax,
-        linewidth=0,
-        edgecolor="none",
-        rasterized=True,
-    )
-
-    priority_mask = df["priority_class"].isin(
-        ["Both priority types", "Network priority", "Area-gap priority"]
-    )
-    df.loc[priority_mask].boundary.plot(
-        ax=ax,
-        color="#333333",
-        linewidth=0.12,
-        alpha=0.45,
-    )
-
-    add_admin_boundary(ax, adm, linewidth=0.35, alpha=0.55)
-    add_north_arrow(ax, df)
-    add_scale_bar(ax, df)
-    remove_axis(ax)
-
-    handles = [mpatches.Patch(color=colors[k], label=k) for k in order if k in df["priority_class"].values or k == "Not priority"]
-
-    ax.legend(
-        handles=handles,
-        loc="lower right",
-        frameon=True,
-        facecolor="white",
-        edgecolor="#CCCCCC",
-        fontsize=8.7,
-    )
-
-    # ax.set_title(
-    #     "Priority Intervention Areas",
-    #     fontsize=13,
-    #     fontweight="bold",
-    # )
-
-    fig.text(
-        0.5,
-        0.03,
-        f"Network priority = >1000m / unreachable + High-density + LST hotspot.",
-        ha="center",
-        fontsize=8.2,
-        color="#555555",
-        style="italic",
-    )
-
-    fig.tight_layout(rect=[0, 0.045, 1, 1])
-    save_fig(fig, "fig6_priority_intervention_areas.png")
-
-    summary = df.groupby("priority_class", observed=False).agg(
-        cells=("grid_id", "count") if "grid_id" in df.columns else ("population", "size"),
-        population=("population", "sum")
-    ).reset_index()
-
-    total_pop = df["population"].sum()
-    summary["population_pct"] = (summary["population"] / total_pop * 100).round(1)
-
-    summary.to_csv(os.path.join(PATHS.plots_dir, "fig6_priority_area_summary.csv"), index=False)
 
 
 # ============================================================
@@ -1362,138 +988,8 @@ def lorenz_xy(gdf: gpd.GeoDataFrame, asset_col: str) -> Tuple[np.ndarray, np.nda
 # SUPPLEMENTARY 4. BIVARIATE NETWORK ACCESS DEFICIT & POPULATION
 # ============================================================
 
-def fig5_bivariate_lisa_clusters(gdf: gpd.GeoDataFrame) -> None:
-    adm = load_admin(gdf.crs)
-    df = gdf.copy()
-
-    df["bilisa_class"] = "Not significant"
-    if "bilisa_access_deficit_A_x_pop_density_HH_fdr" in df.columns:
-        df.loc[df["bilisa_access_deficit_A_x_pop_density_HH_fdr"] == 1, "bilisa_class"] = "High-High Cluster"
-
-    colors = {
-        "High-High Cluster": "#B2182B",
-        "Not significant": "#E6E6E6",
-    }
-
-    fig, ax = plt.subplots(figsize=(9.2, 9.2))
-
-    df.plot(
-        color=df["bilisa_class"].map(colors),
-        ax=ax,
-        linewidth=0,
-        edgecolor="none",
-        rasterized=True,
-    )
-
-    add_admin_boundary(ax, adm, linewidth=0.35, alpha=0.55)
-    add_north_arrow(ax, df)
-    add_scale_bar(ax, df)
-    remove_axis(ax)
-
-    ax.set_title(
-        "Bivariate LISA: Network Access Deficit × Population Density",
-        fontsize=13,
-        fontweight="bold",
-    )
-
-    handles = [mpatches.Patch(color=colors[k], label=k) for k in ["High-High Cluster", "Not significant"]]
-    ax.legend(
-        handles=handles,
-        loc="lower right",
-        frameon=True,
-        facecolor="white",
-        edgecolor="#CCCCCC",
-        fontsize=8.7,
-    )
-
-    fig.text(
-        0.5,
-        0.025,
-        "High-High clusters indicate areas where severe access deficits are spatially co-located with high population density.",
-        ha="center",
-        fontsize=8.2,
-        color="#555555",
-        style="italic",
-    )
-
-    fig.tight_layout(rect=[0, 0.045, 1, 1])
-    save_fig(fig, "fig5_bivariate_lisa_clusters.png")
-
-    pd.DataFrame([{
-        "n_high_high_cells": (df["bilisa_class"] == "High-High Cluster").sum(),
-        "n_total_cells": len(df),
-    }]).to_csv(
-        os.path.join(PATHS.plots_dir, "fig5_bivariate_lisa_summary.csv"),
-        index=False
-    )
 
 
-def supp5_bivariate_lisa_lst(gdf: gpd.GeoDataFrame) -> None:
-    adm = load_admin(gdf.crs)
-    df = gdf.copy()
-
-    # Find the LST column dynamically
-    lst_col = None
-    for col in df.columns:
-        if col.startswith("bilisa_access_deficit_A_x_") and col.endswith("_HH_fdr") and "lst" in col:
-            lst_col = col
-            break
-            
-    if not lst_col:
-        print("Warning: Could not find BiLISA LST column.")
-        return
-
-    df["bilisa_class"] = "Not significant"
-    df.loc[df[lst_col] == 1, "bilisa_class"] = "High-High cluster"
-
-    colors = {
-        "High-High cluster": "#B2182B",
-        "Not significant": "#E6E6E6",
-    }
-
-    fig, ax = plt.subplots(figsize=(9.2, 9.2))
-
-    df.plot(
-        color=df["bilisa_class"].map(colors),
-        ax=ax,
-        linewidth=0,
-        edgecolor="none",
-        rasterized=True,
-    )
-
-    add_admin_boundary(ax, adm, linewidth=0.35, alpha=0.55)
-    add_north_arrow(ax, df)
-    add_scale_bar(ax, df)
-    remove_axis(ax)
-
-    ax.set_title(
-        "Bivariate LISA clusters of access deficit and LST",
-        fontsize=13,
-        fontweight="bold",
-    )
-
-    handles = [mpatches.Patch(color=colors[k], label=k) for k in ["High-High cluster", "Not significant"]]
-    ax.legend(
-        handles=handles,
-        loc="lower right",
-        frameon=True,
-        facecolor="white",
-        edgecolor="#CCCCCC",
-        fontsize=8.7,
-    )
-
-    fig.text(
-        0.5,
-        0.025,
-        "High–High clusters indicate grid cells where severe Level A UGBS access deficits are spatially associated with elevated LST, based on FDR-adjusted bivariate local Moran’s I.",
-        ha="center",
-        fontsize=8.2,
-        color="#555555",
-        style="italic",
-    )
-
-    fig.tight_layout(rect=[0, 0.045, 1, 1])
-    save_fig(fig, "supp5_bivariate_lisa_lst.png")
 
 
 # ============================================================
@@ -2071,8 +1567,6 @@ def run() -> None:
     export_qgis_ready_data(gdf)
 
     print("\n=== MAIN FIGURES ===")
-    fig1_study_area_framework(gdf)
-    fig2_physical_network_gap(gdf)
     fig3_conversion_ratio_by_density(gdf)
     fig4_population_weighted_accessibility(gdf)
     fig5_lorenz_inequality(gdf)
@@ -2084,10 +1578,6 @@ def run() -> None:
     supp2_conversion_ratio_by_density(gdf)
     supp5_preferred_spatial_regression_coefficients()
     supp6_green_illusion_binned(gdf)
-    fig5_bivariate_lisa_clusters(gdf)
-    fig5_bivariate_lisa_clusters(gdf)
-    supp5_bivariate_lisa_lst(gdf)
-    fig6_priority_intervention_areas(gdf)
 
     print(f"\nAll figures saved to: {PATHS.plots_dir}")
 
