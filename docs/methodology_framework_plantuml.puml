@@ -1,0 +1,84 @@
+@startuml
+hide stereotype
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam defaultTextAlignment center
+skinparam nodesep 40
+skinparam ranksep 50
+
+skinparam rectangle {
+  BackgroundColor white
+  BorderColor black
+  BorderThickness 1.2
+  RoundCorner 8
+}
+
+skinparam rectangle<<Stage>> {
+  BackgroundColor #FAFAFA
+  BorderColor #444444
+  BorderThickness 1.5
+  RoundCorner 10
+}
+
+skinparam rectangle<<Output>> {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+  BorderThickness 2
+  RoundCorner 10
+}
+
+title Methodological framework for green-blue accessibility and cooling-justice assessment
+
+rectangle "Stage 1. Data acquisition and preprocessing" as S1 <<Stage>> {
+  rectangle "Sentinel-2\nimagery" as D1
+  rectangle "Landsat 8/9\nLST" as D2
+  rectangle "OpenStreetMap" as D3
+  rectangle "UGBS inventory\nand administrative\nboundaries" as D4
+  rectangle "WorldPop\npopulation" as D5
+
+  D1 -[hidden]right- D2
+  D2 -[hidden]right- D3
+  D3 -[hidden]right- D4
+  D4 -[hidden]right- D5
+}
+
+rectangle "Stage 2. Layer construction" as S2 <<Stage>> {
+  rectangle "Land-cover classification\nTree, grass, water, crop,\nbuilt-up, bare" as L1
+  rectangle "Physical UGBS cover (%)\nTree + grass + water\nper 250-m grid" as L2
+  
+  rectangle "UGBS functional classification\nLevel A and Level A+B" as L3
+  rectangle "Network accessibility\nDistance to nearest accessible UGBS\n300 / 500 / 1000 m" as L4
+  
+  rectangle "Exposure surfaces\nPopulation density\n+ LST P75" as L5
+
+  L1 -[hidden]right- L3
+  L3 -[hidden]right- L5
+
+  L1 -down-> L2
+  L3 -down-> L4
+}
+
+rectangle "Stage 3. Spatial equity diagnosis" as S3 <<Stage>> {
+  rectangle "Physical-access gap" as A1
+  rectangle "Population-weighted\naccessibility" as A2
+  rectangle "Lorenz curve / Gini\nAccessible Level A UGBS" as A3
+  rectangle "FDR-corrected\nLST hotspots" as A4
+  rectangle "Bivariate LISA\nAccess deficit x\npopulation density" as A5
+
+  A1 -[hidden]right- A2
+  A2 -[hidden]right- A3
+  A3 -[hidden]right- A4
+  A4 -[hidden]right- A5
+}
+
+rectangle "Stage 4. Planning output" as S4 <<Stage>> {
+  rectangle "Priority intervention cells\nHigh population density\n+ Level A access deficit\n(>1000 m or unreachable)\n+ FDR-corrected LST hotspot" as O1 <<Output>>
+}
+
+S1 ---> S2
+S2 ---> S3
+S3 ---> S4
+
+@enduml

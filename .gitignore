@@ -1,0 +1,34 @@
+# Data and Outputs
+data/
+outputs/
+outputs_old_*/
+*.pdf
+*.zip
+*.tar.gz
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+cache/
+scripts/cache/
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# IDEs and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.lnk
+
+# Temporary and Scratch
+scratch/
+temp/
