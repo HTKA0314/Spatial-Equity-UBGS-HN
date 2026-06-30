@@ -1,6 +1,7 @@
 # Data and Outputs
 data/
 outputs/
+!outputs/plots/
 outputs_old_*/
 *.pdf
 *.zip
